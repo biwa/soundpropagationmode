@@ -1,4 +1,4 @@
-Sound Propagation Mode Plugin (version 0.9)
+Sound Propagation Mode Plugin (version 0.9.1)
 -------------------------------------------
 
 This plugin adds a new mode to GZDoom Builder. This mode shows how sound
@@ -9,7 +9,7 @@ Following colors are used:
 * dark green: the currently highlighted sector
 * light green: sounds can travel unhindered to these sectors
 * yellow: these sectors are behind a sound blocking line, but sound will
-  still travel to this sector from t he highlighted sector
+  still travel to this sector from the highlighted sector
 * gray: sounds from the highlighted sector will not travel to these sectors
 * red: these lines have the block sound flag set
 
@@ -30,7 +30,13 @@ https://github.com/biwa/
 
 Version History
 ---------------
-0.9 (2015-03-01) - First release
+0.9.1 (2015-03-01)
+	- Fixed a typo in SoundPropagation.txt
+	- Fixed a bug where sound would propagate through sectors even
+	  though their heights should not allow it
+	  
+0.9.0 (2015-03-01)
+	- First release
 
 
 

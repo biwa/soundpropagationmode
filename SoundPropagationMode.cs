@@ -462,8 +462,8 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 						// (like closed doors, raised lifts etc.)
 						if (
 							(
-								//sector.CeilHeight <= oppositesector.FloorHeight ||
-								//sector.FloorHeight >= oppositesector.CeilHeight ||
+								sector.CeilHeight <= oppositesector.FloorHeight ||
+								sector.FloorHeight >= oppositesector.CeilHeight ||
 								oppositesector.CeilHeight <= oppositesector.FloorHeight ||
 								sector.CeilHeight <= sector.FloorHeight
 							) &&
