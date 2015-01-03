@@ -1,0 +1,43 @@
+Sound Propagation Mode Plugin (version 0.9)
+-------------------------------------------
+
+This plugin adds a new mode to GZDoom Builder. This mode shows how sound
+propagates from the currently highlighted sector through the map.
+
+Following colors are used:
+
+* dark green: the currently highlighted sector
+* light green: sounds can travel unhindered to these sectors
+* yellow: these sectors are behind a sound blocking line, but sound will
+  still travel to this sector from t he highlighted sector
+* gray: sounds from the highlighted sector will not travel to these sectors
+* red: these lines have the block sound flag set
+
+
+
+Installation
+------------
+Simply copy the SoundPropagation.dll into the Plugins folder in your GZDB
+installation folder.
+
+
+
+Where to get the source code
+----------------------------
+https://github.com/biwa/
+
+
+
+Version History
+---------------
+0.9 (2015-03-01) - First release
+
+
+
+License Info
+------------
+The code is based on the DB2 sectors mode, so the same license applies (an
+unspecified version of the GPL)
+
+The ear icon used was made by FatCow (http://www.fatcow.com/). The license for
+the icon is CC BY 3.0 US (http://creativecommons.org/licenses/by/3.0/us/)
