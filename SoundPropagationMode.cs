@@ -65,6 +65,7 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 		
 		// Highlighted item
 		protected Sector highlighted;
+
 		private FlatVertex[] overlayGeometryLevel1;
 		private FlatVertex[] overlayGeometryLevel2;
 
@@ -72,6 +73,7 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 		protected bool editpressed;
 
 		private Dictionary<Sector, int> noisysectors;
+		private List<Thing> huntingThings;
 
 		#endregion
 
@@ -87,6 +89,7 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 		public SoundPropagationMode()
 		{
 			noisysectors = new Dictionary<Sector, int>();
+			huntingThings = new List<Thing>();
 		}
 
 		// Disposer
@@ -120,6 +123,7 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 		}
 
 		// This updates the overlay
+		/*
 		private void UpdateOverlay()
 		{
 			if(renderer.StartOverlay(true))
@@ -138,15 +142,10 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 					renderer.RenderHighlight(highlighted.FlatVertices, BuilderPlug.Me.HighlightColor.WithAlpha(128).ToInt());
 				}
 
-				foreach(Linedef ld in General.Map.Map.Linedefs)
-				{
-					if(LinedefBlocksSounds(ld))
-						renderer.RenderLine(ld.Start.Position, ld.End.Position, LINE_THICKNESS, BuilderPlug.Me.BlockSoundColor, true);
-				}
-
 				renderer.Finish();
 			}
 		}
+		*/
 
 		private void updateOverlaySurfaces()
 		{
@@ -210,6 +209,7 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 		protected void Highlight(Sector s)
 		{
 			// Update display
+			/*
 			if(renderer.StartPlotter(false))
 			{
 				// Undraw previous highlight
@@ -229,18 +229,27 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 				renderer.Finish();
 			}
 
-			updateOverlaySurfaces();
-			UpdateOverlay();
+			// updateOverlaySurfaces();
+			// UpdateOverlay();
 			renderer.Present();
+			*/
+
+			// Set new highlight
+			highlighted = s;
+
+			UpdateSoundPropagation();
 
 			// Show highlight info
-			if((highlighted != null) && !highlighted.IsDisposed)
+			if ((highlighted != null) && !highlighted.IsDisposed)
 				General.Interface.ShowSectorInfo(highlighted);
 			else
 				General.Interface.HideInfo();
+
+			General.Interface.RedrawDisplay();
 		}
 
 		// This selectes or deselects a sector
+		/*
 		protected void SelectSector(Sector s, bool selectstate, bool update)
 		{
 			bool selectionchanged = false;
@@ -280,6 +289,7 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 				}
 			}
 		}
+		*/
 
 		private void UpdateSoundPropagation()
 		{
@@ -287,6 +297,7 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 			List<Sector> checkedsectors = new List<Sector>();
 
 			noisysectors.Clear();
+			huntingThings.Clear();
 
 			if (highlighted == null || highlighted.IsDisposed)
 				return;
@@ -371,6 +382,15 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 				sectorstocheck.Remove(sector);
 				checkedsectors.Add(sector);
 			}
+
+			// Update the list of things that will actually go for the player when hearing a noise
+			foreach (Thing thing in General.Map.Map.Things)
+			{
+				thing.DetermineSector();
+
+				if (thing.Sector != null && noisysectors.Keys.Contains(thing.Sector) && !ThingAmbushes(thing))
+					huntingThings.Add(thing);
+			}
 		}
 
 		private bool LinedefBlocksSounds(Linedef linedef)
@@ -381,6 +401,18 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 				return flags["blocksound"];
 			else if (!General.Map.UDMF && flags.ContainsKey("64"))
 				return flags["64"];
+
+			return false;
+		}
+
+		private bool ThingAmbushes(Thing thing)
+		{
+			var flags = thing.GetFlags();
+
+			if (General.Map.UDMF && flags.ContainsKey("ambush"))
+				return flags["ambush"];
+			else if (!General.Map.UDMF && flags.ContainsKey("8"))
+				return flags["8"];
 
 			return false;
 		}
@@ -422,10 +454,10 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 
 			presentation.AddLayer(new PresentLayer(RendererLayer.Background, BlendingMode.Mask, General.Settings.BackgroundAlpha));
 			// presentation.AddLayer(new PresentLayer(RendererLayer.Surface, BlendingMode.Mask));
-			presentation.AddLayer(new PresentLayer(RendererLayer.Things, BlendingMode.Alpha, 1f));
 			presentation.AddLayer(new PresentLayer(RendererLayer.Grid, BlendingMode.Mask));
-			presentation.AddLayer(new PresentLayer(RendererLayer.Geometry, BlendingMode.Alpha, 1f, true));
 			presentation.AddLayer(new PresentLayer(RendererLayer.Overlay, BlendingMode.Alpha, 1f, true));
+			presentation.AddLayer(new PresentLayer(RendererLayer.Things, BlendingMode.Alpha, 1.0f));
+			presentation.AddLayer(new PresentLayer(RendererLayer.Geometry, BlendingMode.Alpha, 1f, true));
 
 			renderer.SetPresentation(presentation);
 
@@ -435,10 +467,6 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 
 			// Convert geometry selection to sectors only
 			General.Map.Map.ConvertSelection(SelectionType.Sectors);
-
-			// Update
-			updateOverlaySurfaces();
-			UpdateOverlay();
 		}
 
 		// Mode disengages
@@ -462,7 +490,7 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 					if((General.Map.Map.GetSelectedSectors(true).Count == 0) && (highlighted != null))
 					{
 						// Make the highlight the selection
-						SelectSector(highlighted, true, false);
+						//SelectSector(highlighted, true, false);
 					}
 				}
 			}
@@ -474,21 +502,18 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 		// This redraws the display
 		public override void OnRedrawDisplay()
 		{
-			// renderer.RedrawSurface();
-			// base.OnRedrawDisplay();
-			
+			updateOverlaySurfaces();
+
 			// Render lines and vertices
 			if(renderer.StartPlotter(true))
 			{
 				renderer.PlotLinedefSet(General.Map.Map.Linedefs);
 				renderer.PlotVerticesSet(General.Map.Map.Vertices);
 
-				//foreach(Sector sector in General.Map.Map.Sectors)
-					//renderer.PlotSector(sector), new PixelColor(255, 255, 160, 160));
-
-				if((highlighted != null) && !highlighted.IsDisposed)
+				foreach (Linedef ld in General.Map.Map.Linedefs)
 				{
-					renderer.PlotSector(highlighted, General.Colors.Highlight);
+					if (LinedefBlocksSounds(ld))
+						renderer.PlotLine(ld.Start.Position, ld.End.Position, BuilderPlug.Me.BlockSoundColor);
 				}
 
 				renderer.Finish();
@@ -497,12 +522,15 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 			// Render things
 			if(renderer.StartThings(true))
 			{
-				renderer.RenderThingSet(General.Map.ThingsFilter.HiddenThings, Presentation.THINGS_HIDDEN_ALPHA);
-				renderer.RenderThingSet(General.Map.ThingsFilter.VisibleThings, 1.0f);
+				renderer.RenderThingSet(General.Map.ThingsFilter.HiddenThings, Presentation.THINGS_BACK_ALPHA);
+				renderer.RenderThingSet(General.Map.ThingsFilter.VisibleThings, Presentation.THINGS_HIDDEN_ALPHA);
+				renderer.RenderThingSet(huntingThings, 1.0f);
+
 				renderer.Finish();
 			}
 
 			// Render selection
+			/*
 			if(renderer.StartOverlay(true))
 			{
 				// if((highlighted != null) && !highlighted.IsDisposed) BuilderPlug.Me.RenderReverseAssociations(renderer, highlightasso);
@@ -510,14 +538,44 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 
 				renderer.Finish();
 			}
+			*/
 
-			// Render overlay
-			UpdateOverlay();
+			if (renderer.StartOverlay(true))
+			{
+				foreach (Sector s in General.Map.Map.Sectors)
+				{
+					RenderColoredSector(s, BuilderPlug.Me.NoSoundColor.WithAlpha(128));
+				}
+
+				RenderColoredSector(overlayGeometryLevel1, BuilderPlug.Me.Level1Color.WithAlpha(128));
+				RenderColoredSector(overlayGeometryLevel2, BuilderPlug.Me.Level2Color.WithAlpha(128));
+
+				if (highlighted != null && !highlighted.IsDisposed)
+				{
+					RenderColoredSector(highlighted, BuilderPlug.Me.HighlightColor.WithAlpha(128));
+				}
+
+				renderer.Finish();
+			}
 			
 			renderer.Present();
 		}
 
+		private void RenderColoredSector(Sector sector, PixelColor color)
+		{
+			RenderColoredSector(sector.FlatVertices, color);
+		}
+
+		private void RenderColoredSector(FlatVertex[] flatvertices, PixelColor color)
+		{
+			FlatVertex[] fv = new FlatVertex[flatvertices.Length];
+			flatvertices.CopyTo(fv, 0);
+			for (int i = 0; i < fv.Length; i++) fv[i].c = color.ToInt();
+			renderer.RenderGeometry(fv, General.Map.Data.WhiteTexture, true);
+		}
+
 		// Selection
+		/*
 		protected override void OnSelectBegin()
 		{
 			// Item highlighted?
@@ -576,6 +634,7 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 
 			base.OnSelectEnd();
 		}
+		*/
 
 		// Mouse moves
 		public override void OnMouseMove(MouseEventArgs e)
