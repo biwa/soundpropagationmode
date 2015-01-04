@@ -386,6 +386,9 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 			// Update the list of things that will actually go for the player when hearing a noise
 			foreach (Thing thing in General.Map.Map.Things)
 			{
+				if (!General.Map.ThingsFilter.VisibleThings.Contains(thing))
+					continue;
+
 				thing.DetermineSector();
 
 				if (thing.Sector != null && noisysectors.Keys.Contains(thing.Sector) && !ThingAmbushes(thing))
