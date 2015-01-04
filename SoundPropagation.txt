@@ -30,12 +30,19 @@ https://github.com/biwa/
 
 Version History
 ---------------
-0.9.1 (2015-03-01)
+0.9.2 (2015-01-04)
+	- Fixed dates in SoundPropagation.txt file (to YYYY-MM-DD)
+	- Added color configuration dialog (accessible from the tool bar when
+	  in Sound Propagation Mode
+	- Removed some unused code
+	
+	
+0.9.1 (2015-01-03)
 	- Fixed a typo in SoundPropagation.txt
 	- Fixed a bug where sound would propagate through sectors even
 	  though their heights should not allow it
 	  
-0.9.0 (2015-03-01)
+0.9.0 (2015-01-03)
 	- First release
 
 
@@ -45,5 +52,5 @@ License Info
 The code is based on the DB2 sectors mode, so the same license applies (an
 unspecified version of the GPL)
 
-The ear icon used was made by FatCow (http://www.fatcow.com/). The license for
+The icons used were made by FatCow (http://www.fatcow.com/). The license for
 the icon is CC BY 3.0 US (http://creativecommons.org/licenses/by/3.0/us/)

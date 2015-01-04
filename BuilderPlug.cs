@@ -68,6 +68,13 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 		private bool viewselectionnumbers;
 		private float stitchrange;
 
+		// Colors
+		private PixelColor highlightcolor;
+		private PixelColor level1color;
+		private PixelColor level2color;
+		private PixelColor blocksoundcolor;
+		private PixelColor nosoundcolor;
+
 		#endregion
 
 		#region ================== Properties
@@ -92,6 +99,13 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 
 		public float StitchRange { get { return stitchrange; } }
 
+		// Colors
+		public PixelColor HighlightColor { get { return highlightcolor; } set { highlightcolor = value; } }
+		public PixelColor Level1Color { get { return level1color; } set { level1color = value; } }
+		public PixelColor Level2Color { get { return level2color; } set { level2color = value; } }
+		public PixelColor BlockSoundColor { get { return blocksoundcolor; } set { blocksoundcolor = value; } }
+		public PixelColor NoSoundColor { get { return nosoundcolor; } set { nosoundcolor = value; } }
+
 		#endregion
 
  		// Static instance. We can't use a real static class, because BuilderPlug must
@@ -112,6 +126,12 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 
 			usehighlight = true;
 
+			highlightcolor = PixelColor.FromInt(General.Settings.ReadPluginSetting("highlightcolor", new PixelColor(255, 0, 192, 0).ToInt()));
+			level1color = PixelColor.FromInt(General.Settings.ReadPluginSetting("level1color", new PixelColor(255, 0, 255, 0).ToInt()));
+			level2color = PixelColor.FromInt(General.Settings.ReadPluginSetting("level2color", new PixelColor(255, 255, 255, 0).ToInt()));
+			nosoundcolor = PixelColor.FromInt(General.Settings.ReadPluginSetting("nosoundcolor", new PixelColor(255, 160, 160, 160).ToInt()));
+			blocksoundcolor = PixelColor.FromInt(General.Settings.ReadPluginSetting("blocksoundcolor", new PixelColor(255, 255, 0, 0).ToInt()));
+
 			//controlsectorarea = new ControlSectorArea(-512, 0, 512, 0, -128, -64, 128, 64, 64, 56);
 
 			// This binds the methods in this class that have the BeginAction
@@ -120,6 +140,8 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 			// this is not needed, because they are bound automatically when the
 			// editing mode is engaged.
             General.Actions.BindMethods(this);
+
+			menusform = new MenusForm();
 
   			// TODO: Add DB2 version check so that old DB2 versions won't crash
 			// General.ErrorLogger.Add(ErrorType.Error, "zomg!");
@@ -146,5 +168,18 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 
 
 		#endregion
+	}
+
+	public static class Extensions
+	{
+		public static PixelColor FromInt(this PixelColor color, int colorInt)
+		{
+			byte a = (byte)((colorInt & (0xff << 24)) >> 24);
+			byte r = (byte)((colorInt & (0xff << 16)) >> 16);
+			byte g = (byte)((colorInt & (0xff << 8)) >> 8);
+			byte b = (byte)(colorInt & 0xff);
+
+			return new PixelColor(a, r, g, b);
+		}
 	}
 }

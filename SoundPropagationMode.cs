@@ -39,7 +39,6 @@ using CodeImp.DoomBuilder.Types;
 using CodeImp.DoomBuilder.BuilderModes;
 using CodeImp.DoomBuilder.BuilderModes.Interface;
 using CodeImp.DoomBuilder.Controls;
-using CodeImp.DoomBuilder.GZBuilder.Geometry;
 
 #endregion
 
@@ -66,15 +65,11 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 		
 		// Highlighted item
 		protected Sector highlighted;
-		private Association highlightasso = new Association();
 		private FlatVertex[] overlayGeometryLevel1;
 		private FlatVertex[] overlayGeometryLevel2;
 
 		// Interface
 		protected bool editpressed;
-
-		// Labels
-		private Dictionary<Sector, TextLabel[]> labels;
 
 		private Dictionary<Sector, int> noisysectors;
 
@@ -100,10 +95,6 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 			// Not already disposed?
 			if(!isdisposed)
 			{
-				// Dispose old labels
-				foreach(KeyValuePair<Sector, TextLabel[]> lbl in labels)
-					foreach(TextLabel l in lbl.Value) l.Dispose();
-
 				// Dispose base
 				base.Dispose();
 			}
@@ -128,81 +119,29 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 			return (int)(crc.Value & 0xFFFFFFFF);
 		}
 
-		// This sets up new labels
-		private void SetupLabels()
-		{
-			if(labels != null)
-			{
-				// Dispose old labels
-				foreach(KeyValuePair<Sector, TextLabel[]> lbl in labels)
-					foreach(TextLabel l in lbl.Value) l.Dispose();
-			}
-
-			// Make text labels for sectors
-			labels = new Dictionary<Sector, TextLabel[]>(General.Map.Map.Sectors.Count);
-			foreach(Sector s in General.Map.Map.Sectors)
-			{
-				// Setup labels
-				TextLabel[] labelarray = new TextLabel[s.Labels.Count];
-				for(int i = 0; i < s.Labels.Count; i++)
-				{
-					Vector2D v = s.Labels[i].position;
-					labelarray[i] = new TextLabel(20);
-					labelarray[i].TransformCoords = true;
-					labelarray[i].Rectangle = new RectangleF(v.x, v.y, 0.0f, 0.0f);
-					labelarray[i].AlignX = TextAlignmentX.Center;
-					labelarray[i].AlignY = TextAlignmentY.Middle;
-					labelarray[i].Scale = 14f;
-					labelarray[i].Color = General.Colors.Highlight.WithAlpha(255);
-					labelarray[i].Backcolor = General.Colors.Background.WithAlpha(255);
-				}
-				labels.Add(s, labelarray);
-			}
-		}
-
 		// This updates the overlay
 		private void UpdateOverlay()
 		{
 			if(renderer.StartOverlay(true))
 			{
 				foreach (Sector sector in General.Map.Map.Sectors)
-					renderer.RenderHighlight(sector.FlatVertices, new PixelColor(128, 160, 160, 160).ToInt());
+					renderer.RenderHighlight(sector.FlatVertices, BuilderPlug.Me.NoSoundColor.WithAlpha(128).ToInt());
 
 				if (BuilderPlug.Me.UseHighlight)
 				{
-					renderer.RenderHighlight(overlayGeometryLevel1, new PixelColor(128, 0, 255, 0).ToInt());
-					renderer.RenderHighlight(overlayGeometryLevel2, new PixelColor(128, 255, 255, 0).ToInt());
+					renderer.RenderHighlight(overlayGeometryLevel1, BuilderPlug.Me.Level1Color.WithAlpha(128).ToInt());
+					renderer.RenderHighlight(overlayGeometryLevel2, BuilderPlug.Me.Level2Color.WithAlpha(128).ToInt());
 				}
 
 				if (BuilderPlug.Me.UseHighlight && highlighted != null)
 				{
-					renderer.RenderHighlight(highlighted.FlatVertices, new PixelColor(128, 0, 192, 0).ToInt());
+					renderer.RenderHighlight(highlighted.FlatVertices, BuilderPlug.Me.HighlightColor.WithAlpha(128).ToInt());
 				}
 
 				foreach(Linedef ld in General.Map.Map.Linedefs)
 				{
 					if(LinedefBlocksSounds(ld))
-						renderer.RenderLine(ld.Start.Position, ld.End.Position, LINE_THICKNESS, new PixelColor(255, 255, 0, 0), true);
-				}
-
-
-				if(BuilderPlug.Me.ViewSelectionNumbers)
-				{
-					// Go for all selected sectors
-					ICollection<Sector> orderedselection = General.Map.Map.GetSelectedSectors(true);
-					foreach(Sector s in orderedselection)
-					{
-						// Render labels
-						TextLabel[] labelarray = labels[s];
-						for(int i = 0; i < s.Labels.Count; i++)
-						{
-							TextLabel l = labelarray[i];
-
-							// Render only when enough space for the label to see
-							float requiredsize = (l.TextSize.Height / 2) / renderer.Scale;
-							if(requiredsize < s.Labels[i].radius) renderer.RenderText(l);
-						}
-					}
+						renderer.RenderLine(ld.Start.Position, ld.End.Position, LINE_THICKNESS, BuilderPlug.Me.BlockSoundColor, true);
 				}
 
 				renderer.Finish();
@@ -265,50 +204,11 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 			
 			// Update
 			General.Map.Map.Update();
-			
-			// Make text labels for sectors
-			SetupLabels();
-			UpdateSelectedLabels();
 		}
 
 		// This highlights a new item
 		protected void Highlight(Sector s)
 		{
-			bool completeredraw = false;
-
-			// Often we can get away by simply undrawing the previous
-			// highlight and drawing the new highlight. But if associations
-			// are or were drawn we need to redraw the entire display.
-
-			// Previous association highlights something?
-			if((highlighted != null) && (highlighted.Tag > 0)) completeredraw = true;
-
-			// Set highlight association
-			if (s != null)
-			{
-				Vector2D center = (s.Labels.Count > 0 ? s.Labels[0].position : new Vector2D(s.BBox.X + s.BBox.Width / 2, s.BBox.Y + s.BBox.Height / 2));
-				highlightasso.Set(center, s.Tag, UniversalType.SectorTag);
-			}
-			else
-				highlightasso.Set(new Vector2D(), 0, 0);
-
-			// New association highlights something?
-			if((s != null) && (s.Tag > 0)) completeredraw = true;
-
-			// Change label color
-			if((highlighted != null) && !highlighted.IsDisposed)
-			{
-				TextLabel[] labelarray = labels[highlighted];
-				foreach(TextLabel l in labelarray) l.Color = General.Colors.Selection;
-			}
-			
-			// Change label color
-			if((s != null) && !s.IsDisposed)
-			{
-				TextLabel[] labelarray = labels[s];
-				foreach(TextLabel l in labelarray) l.Color = General.Colors.Highlight;
-			}
-
 			// Update display
 			if(renderer.StartPlotter(false))
 			{
@@ -352,28 +252,12 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 				{
 					s.Selected = true;
 					selectionchanged = true;
-					
-					// Setup labels
-					ICollection<Sector> orderedselection = General.Map.Map.GetSelectedSectors(true);
-					TextLabel[] labelarray = labels[s];
-					foreach(TextLabel l in labelarray)
-					{
-						l.Text = orderedselection.Count.ToString();
-						l.Color = General.Colors.Selection;
-					}
 				}
 				// Deselect the sector?
 				else if(!selectstate && s.Selected)
 				{
 					s.Selected = false;
 					selectionchanged = true;
-
-					// Clear labels
-					TextLabel[] labelarray = labels[s];
-					foreach(TextLabel l in labelarray) l.Text = "";
-
-					// Update all other labels
-					UpdateSelectedLabels();
 				}
 
 				// Selection changed?
@@ -394,26 +278,6 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 					UpdateOverlay();
 					renderer.Present();
 				}
-			}
-		}
-
-		// This updates labels from the selected sectors
-		private void UpdateSelectedLabels()
-		{
-			// Go for all labels in all selected sectors
-			ICollection<Sector> orderedselection = General.Map.Map.GetSelectedSectors(true);
-			int index = 0;
-			foreach(Sector s in orderedselection)
-			{
-				TextLabel[] labelarray = labels[s];
-				foreach(TextLabel l in labelarray)
-				{
-					// Make sure the text and color are right
-					int labelnum = index + 1;
-					l.Text = labelnum.ToString();
-					l.Color = General.Colors.Selection;
-				}
-				index++;
 			}
 		}
 
@@ -544,6 +408,8 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 		{
 			base.OnEngage();
 
+			General.Interface.AddButton(BuilderPlug.Me.MenusForm.ColorConfiguration);
+
 			CustomPresentation presentation = new CustomPresentation();
 			// presentation.AddLayer(new PresentLayer(RendererLayer.Background, BlendingMode.Mask, General.Settings.BackgroundAlpha));
 
@@ -570,11 +436,7 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 			// Convert geometry selection to sectors only
 			General.Map.Map.ConvertSelection(SelectionType.Sectors);
 
-			// Make text labels for sectors
-			SetupLabels();
-			
 			// Update
-			UpdateSelectedLabels();
 			updateOverlaySurfaces();
 			UpdateOverlay();
 		}
@@ -583,6 +445,8 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 		public override void OnDisengage()
 		{
 			base.OnDisengage();
+
+			General.Interface.RemoveButton(BuilderPlug.Me.MenusForm.ColorConfiguration);
 
 			// Keep only sectors selected
 			General.Map.Map.ClearSelectedLinedefs();
@@ -611,7 +475,7 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 		public override void OnRedrawDisplay()
 		{
 			// renderer.RedrawSurface();
-			base.OnRedrawDisplay();
+			// base.OnRedrawDisplay();
 			
 			// Render lines and vertices
 			if(renderer.StartPlotter(true))
@@ -619,13 +483,12 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 				renderer.PlotLinedefSet(General.Map.Map.Linedefs);
 				renderer.PlotVerticesSet(General.Map.Map.Vertices);
 
-				// foreach(Sector sector in General.Map.Map.Sectors)
-				//	renderer.PlotSector(sector, new PixelColor(255, 255, 160, 160));
+				//foreach(Sector sector in General.Map.Map.Sectors)
+					//renderer.PlotSector(sector), new PixelColor(255, 255, 160, 160));
 
 				if((highlighted != null) && !highlighted.IsDisposed)
 				{
 					renderer.PlotSector(highlighted, General.Colors.Highlight);
-					// BuilderPlug.Me.PlotReverseAssociations(renderer, highlightasso);
 				}
 
 				renderer.Finish();
@@ -700,8 +563,6 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 					}
 
 					// Update overlay
-					TextLabel[] labelarray = labels[highlighted];
-					foreach(TextLabel l in labelarray) l.Color = General.Colors.Highlight;
 					updateOverlaySurfaces();
 					UpdateOverlay();
 					renderer.Present();
@@ -792,14 +653,17 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 			//mxd. Clear selection info
 			General.Interface.DisplayStatus(StatusType.Selection, string.Empty);
 
-			// Clear labels
-			foreach (TextLabel[] labelarray in labels.Values)
-				foreach (TextLabel l in labelarray) l.Text = "";
-
 			updateOverlaySurfaces();
 
 			// Redraw
 			General.Interface.RedrawDisplay();
+		}
+
+		[BeginAction("soundpropagationcolorconfiguration")]
+		public void ConfigureColors()
+		{
+			ColorConfiguration cc = new ColorConfiguration();
+			cc.ShowDialog((Form)General.Interface);
 		}
 
 		#endregion
