@@ -69,6 +69,7 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
+    <Compile Include="SoundEnvironmentMode.cs" />
     <Compile Include="Windows\ColorConfiguration.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -115,6 +116,9 @@
       <DependentUpon>MenusForm.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Resources\SoundPropagationIcon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\ZDoomSoundEnvironment.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

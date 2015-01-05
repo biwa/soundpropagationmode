@@ -1,4 +1,4 @@
-
+﻿
 #region ================== Copyright (c) 2007 Pascal vd Heiden, 2014 Boris Iwanski
 
 /*
@@ -44,16 +44,16 @@ using CodeImp.DoomBuilder.Controls;
 
 namespace CodeImp.DoomBuilder.SoundPropagationMode
 {
-	[EditMode(DisplayName = "Sound Propagation Mode",
-			  SwitchAction = "soundpropagationmode",		// Action name used to switch to this mode
-			  ButtonImage = "SoundPropagationIcon.png",	// Image resource name for the button
+	[EditMode(DisplayName = "Sound Environment Mode",
+			  SwitchAction = "soundenvironmentmode",		// Action name used to switch to this mode
+			  ButtonImage = "ZDoomSoundEnvironment.png",	// Image resource name for the button
 			  ButtonOrder = int.MinValue + 501,	// Position of the button (lower is more to the left)
 			  ButtonGroup = "000_editing",
 			  UseByDefault = true,
 			  SafeStartMode = false,
 			  Volatile = false)]
 
-	public class SoundPropagationMode : ClassicMode
+	public class SoundEnvironmentMode : ClassicMode
 	{
 		#region ================== Constants
 
@@ -61,21 +61,37 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 
 		#endregion
 
+		#region ================== Structs
+
+		struct SoundEnvironment
+		{
+			public List<Sector> sectors;
+			public List<Thing> things;
+
+			public SoundEnvironment(int unused)
+			{
+				sectors = new List<Sector>();
+				things = new List<Thing>();
+			}
+		}
+
+		#endregion
+
 		#region ================== Variables
-		
+
 		// Highlighted item
 		protected Sector highlighted;
-
-		private FlatVertex[] overlayGeometryLevel1;
-		private FlatVertex[] overlayGeometryLevel2;
 
 		// Interface
 		protected bool editpressed;
 
-		private Dictionary<Sector, int> noisysectors;
-		private List<Thing> huntingThings;
+		private List<PixelColor> distinctcolors;
+		private List<SoundEnvironment> soundenvironments;
+		private FlatVertex[] overlayGeometry;
+		private List<Linedef> blockinglinedefs;
 
 		#endregion
+
 
 		#region ================== Properties
 
@@ -86,17 +102,34 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 		#region ================== Constructor / Disposer
 
 		// Constructor
-		public SoundPropagationMode()
+		public SoundEnvironmentMode()
 		{
-			noisysectors = new Dictionary<Sector, int>();
-			huntingThings = new List<Thing>();
+			distinctcolors = new List<PixelColor> {
+				PixelColor.FromColor(Color.Blue), 
+				PixelColor.FromColor(Color.Orange), 
+				PixelColor.FromColor(Color.ForestGreen), 
+				PixelColor.FromColor(Color.Sienna), 
+				PixelColor.FromColor(Color.LightPink), 
+				PixelColor.FromColor(Color.Purple),
+				PixelColor.FromColor(Color.Cyan), 
+				PixelColor.FromColor(Color.LawnGreen), 
+				PixelColor.FromColor(Color.PaleGoldenrod), 
+				PixelColor.FromColor(Color.Red), 
+				PixelColor.FromColor(Color.Yellow), 
+				PixelColor.FromColor(Color.LightSkyBlue), 
+				PixelColor.FromColor(Color.DarkGray), 
+				PixelColor.FromColor(Color.Magenta)
+			};
+
+			soundenvironments = new List<SoundEnvironment>();
+			blockinglinedefs = new List<Linedef>();
 		}
 
 		// Disposer
 		public override void Dispose()
 		{
 			// Not already disposed?
-			if(!isdisposed)
+			if (!isdisposed)
 			{
 				// Dispose base
 				base.Dispose();
@@ -115,7 +148,7 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 			CRC crc = new CRC();
 			ICollection<Sector> orderedselection = General.Map.Map.GetSelectedSectors(true);
 			crc.Add(orderedselection.Count);
-			foreach(Sector s in orderedselection)
+			foreach (Sector s in orderedselection)
 			{
 				crc.Add(s.FixedIndex);
 			}
@@ -147,37 +180,21 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 		}
 		*/
 
-		private void updateOverlaySurfaces()
-		{
-			ICollection<Sector> orderedselection = General.Map.Map.GetSelectedSectors(true);
-			List<FlatVertex> vertsList = new List<FlatVertex>();
-
-			// Go for all selected sectors
-			// foreach (Sector s in orderedselection) vertsList.AddRange(s.FlatVertices);
-			foreach (Sector s in noisysectors.Keys) if(noisysectors[s] == 1) vertsList.AddRange(s.FlatVertices);
-			overlayGeometryLevel1 = vertsList.ToArray();
-
-			vertsList.Clear();
-			foreach (Sector s in noisysectors.Keys) if (noisysectors[s] == 2) vertsList.AddRange(s.FlatVertices);
-
-			overlayGeometryLevel2 = vertsList.ToArray();
-		}
-		
 		// Support function for joining and merging sectors
 		private void JoinMergeSectors(bool removelines)
 		{
 			// Remove lines in betwen joining sectors?
-			if(removelines)
+			if (removelines)
 			{
 				// Go for all selected linedefs
 				List<Linedef> selectedlines = new List<Linedef>(General.Map.Map.GetSelectedLinedefs(true));
-				foreach(Linedef ld in selectedlines)
+				foreach (Linedef ld in selectedlines)
 				{
 					// Front and back side?
-					if((ld.Front != null) && (ld.Back != null))
+					if ((ld.Front != null) && (ld.Back != null))
 					{
 						// Both a selected sector, but not the same?
-						if(ld.Front.Sector.Selected && ld.Back.Sector.Selected &&
+						if (ld.Front.Sector.Selected && ld.Back.Sector.Selected &&
 						   (ld.Front.Sector != ld.Back.Sector))
 						{
 							// Remove this line
@@ -190,17 +207,17 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 			// Find the first sector that is not disposed
 			List<Sector> orderedselection = new List<Sector>(General.Map.Map.GetSelectedSectors(true));
 			Sector first = null;
-			foreach(Sector s in orderedselection)
-				if(!s.IsDisposed) { first = s; break; }
-			
+			foreach (Sector s in orderedselection)
+				if (!s.IsDisposed) { first = s; break; }
+
 			// Join all selected sectors with the first
-			for(int i = 0; i < orderedselection.Count; i++)
-				if((orderedselection[i] != first) && !orderedselection[i].IsDisposed)
+			for (int i = 0; i < orderedselection.Count; i++)
+				if ((orderedselection[i] != first) && !orderedselection[i].IsDisposed)
 					orderedselection[i].Join(first);
 
 			// Clear selection
 			General.Map.Map.ClearAllSelected();
-			
+
 			// Update
 			General.Map.Map.Update();
 		}
@@ -237,8 +254,7 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 			// Set new highlight
 			highlighted = s;
 
-			UpdateSoundPropagation();
-			updateOverlaySurfaces();
+			// UpdateSoundEnvironments();
 
 			// Show highlight info
 			if ((highlighted != null) && !highlighted.IsDisposed)
@@ -246,7 +262,7 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 			else
 				General.Interface.HideInfo();
 
-			General.Interface.RedrawDisplay();
+			// General.Interface.RedrawDisplay();
 		}
 
 		// This selectes or deselects a sector
@@ -292,137 +308,116 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 		}
 		*/
 
-		private void UpdateSoundPropagation()
+		private void UpdateSoundEnvironments()
 		{
 			List<Sector> sectorstocheck = new List<Sector>();
 			List<Sector> checkedsectors = new List<Sector>();
+			List<Sector> allsectors = new List<Sector>();
 
-			noisysectors.Clear();
-			huntingThings.Clear();
+			General.Interface.DisplayStatus(StatusType.Busy, "Updating sound environments");
 
-			if (highlighted == null || highlighted.IsDisposed)
-				return;
+			soundenvironments.Clear();
+			blockinglinedefs.Clear();
 
-			sectorstocheck.Add(highlighted);
-			noisysectors[highlighted] = 1;
+			foreach (Sector s in General.Map.Map.Sectors)
+				allsectors.Add(s);
 
-			while (sectorstocheck.Count > 0)
+			foreach (Sector s in General.Map.Map.Sectors)
 			{
-				// Make sure to first check all sectors that are not behind a sound blocking line
-				Sector sector = sectorstocheck.Find(s => noisysectors[s] == 1);
+				if (checkedsectors.Contains(s))
+					continue;
 
-				// If there are only sectors behind a sound blocking line are left, just take
-				// the first available
-				if (sector == null)
-					sector = sectorstocheck[0];
+				SoundEnvironment environment = new SoundEnvironment(0);
 
-				foreach (Sidedef sd in sector.Sidedefs)
+				// sectorstocheck.Add(General.Map.Map.Sectors.ToList().Find(x => !checkedsectors.Contains(x)));
+				if(allsectors.Count > 0)
+					sectorstocheck.Add(allsectors[0]);
+
+				while (sectorstocheck.Count > 0)
 				{
-					bool blocksound = LinedefBlocksSounds(sd.Line);
-					bool blockheight = false;
+					Sector sector = sectorstocheck[0];
 					Sector oppositesector = null;
 
-					if (sd.Line.Back == null) // If the line is one sided, the sound can travel nowhere, so try the next one
+					if(!environment.sectors.Contains(sector))
+						environment.sectors.Add(sector);
+
+					if (!checkedsectors.Contains(sector))
+						checkedsectors.Add(sector);
+
+					sectorstocheck.Remove(sector);
+					allsectors.Remove(sector);
+
+					foreach (Sidedef sd in sector.Sidedefs)
 					{
-						continue;
-					}
-					else
-					{
-						// Get the sector on the other side of the line we're checking right now
+						if (sd.Line.Back == null || LinedefBlocksSoundEnvironment(sd.Line))
+							continue;
+
 						if (sd.Line.Front.Sector == sector)
 							oppositesector = sd.Line.Back.Sector;
 						else
 							oppositesector = sd.Line.Front.Sector;
 
-						// Check if the sound will be blocked because of sector floor and ceiling heights
-						// (like closed doors, raised lifts etc.)
-						if (
-							(
-								sector.CeilHeight <= oppositesector.FloorHeight ||
-								sector.FloorHeight >= oppositesector.CeilHeight ||
-								oppositesector.CeilHeight <= oppositesector.FloorHeight ||
-								sector.CeilHeight <= sector.FloorHeight
-							) &&
-							(
-								true // sector.Selected == false && oppositesector.Selected == false
-							)
-						)
-						{
-							
-								blockheight = true;
-						}
-					}
-
-					// Try next line if sound will not pass through the current one. The last check makes
-					// sure that the next line is tried if the current line is blocking sound, and the current
-					// sector is already behind a sound blocking line
-					if (oppositesector == null || blockheight || (blocksound && noisysectors[sector] == 2))
-						continue;
-
-					// If the opposite sector was not regarded at all yet...
-					if (!checkedsectors.Contains(oppositesector) && !sectorstocheck.Contains(oppositesector))
-					{
-						sectorstocheck.Add(oppositesector);
-
-						// Set the correct propagation level of the opposite sector. If the line is not blocking
-						// sounds, set the same level as the current sector
-						if(blocksound)
-							noisysectors[oppositesector] = 2;
-						else
-							noisysectors[oppositesector] = noisysectors[sector];
-					}
-					// ... otherwise make sure that an already checked sector gets the correct propagation level.
-					// This is required, since a sector might have sound blocking lines on one side, but the sound
-					// could still travel freely from another side
-					else if(!blocksound && noisysectors[sector] == 1)
-					{
-						noisysectors[oppositesector] = 1;
+						if (!sectorstocheck.Contains(oppositesector) && !checkedsectors.Contains(oppositesector))
+							sectorstocheck.Add(oppositesector);
 					}
 				}
 
-				sectorstocheck.Remove(sector);
-				checkedsectors.Add(sector);
+				environment.things = GetSoundEnvironmentThings(environment.sectors);
+
+				soundenvironments.Add(environment);
 			}
 
-			// Update the list of things that will actually go for the player when hearing a noise
-			foreach (Thing thing in General.Map.Map.Things)
+			// Create the overlay geometry from the sound environments
+			int i = 0;
+			List<FlatVertex> vertsList = new List<FlatVertex>();
+
+			foreach (SoundEnvironment se in soundenvironments)
 			{
-				if (!General.Map.ThingsFilter.VisibleThings.Contains(thing))
-					continue;
+				PixelColor color = BuilderPlug.Me.NoSoundColor;
 
-				thing.DetermineSector();
+				if (se.things.Count > 0)
+				{
+					color = distinctcolors[i % distinctcolors.Count];
+					i++;
+				}
 
-				if (thing.Sector != null && noisysectors.Keys.Contains(thing.Sector) && !ThingAmbushes(thing))
-					huntingThings.Add(thing);
+				foreach(Sector s in se.sectors)
+				{
+					FlatVertex[] fv = new FlatVertex[s.FlatVertices.Length];
+					s.FlatVertices.CopyTo(fv, 0);
+					for (int j = 0; j < fv.Length; j++) fv[j].c = color.WithAlpha(128).ToInt();
+					vertsList.AddRange(fv);
+				}
 			}
+
+			overlayGeometry = vertsList.ToArray();
+
+			// Get all Linedefs that will block sound environments
+			foreach (Linedef ld in General.Map.Map.Linedefs)
+			{
+				if (LinedefBlocksSoundEnvironment(ld))
+					blockinglinedefs.Add(ld);
+			}
+
+			General.Interface.DisplayStatus(StatusType.Ready, "Done updatingsound environments");
 		}
 
-		private bool LinedefBlocksSounds(Linedef linedef)
+		private bool LinedefBlocksSoundEnvironment(Linedef linedef)
 		{
 			var flags = linedef.GetFlags();
 
-			if (General.Map.UDMF && flags.ContainsKey("blocksound"))
-				return flags["blocksound"];
-			else if (!General.Map.UDMF && flags.ContainsKey("64"))
-				return flags["64"];
-
-			return false;
-		}
-
-		private bool ThingAmbushes(Thing thing)
-		{
-			var flags = thing.GetFlags();
-
-			if (General.Map.UDMF && flags.ContainsKey("ambush"))
-				return flags["ambush"];
-			else if (!General.Map.UDMF && flags.ContainsKey("8"))
-				return flags["8"];
+			if (General.Map.UDMF && flags.ContainsKey("zoneboundary"))
+				return flags["zoneboundary"];
+			// In Hexen format the line must have action 121 (Line_SetIdentification) and bit 1 of
+			// the second argument set (see http://zdoom.org/wiki/Line_SetIdentification)
+			else if (!General.Map.UDMF && linedef.Action == 121 && (linedef.Args[1] & 1) == 1)
+				return true;
 
 			return false;
 		}
 
 		#endregion
-		
+
 		#region ================== Events
 
 		public override void OnHelp()
@@ -444,7 +439,7 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 		{
 			base.OnEngage();
 
-			updateOverlaySurfaces();
+			UpdateSoundEnvironments();
 
 			General.Interface.AddButton(BuilderPlug.Me.MenusForm.ColorConfiguration);
 
@@ -484,16 +479,16 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 
 			// Keep only sectors selected
 			General.Map.Map.ClearSelectedLinedefs();
-			
+
 			// Going to EditSelectionMode?
-			if(General.Editing.NewMode is EditSelectionMode)
+			if (General.Editing.NewMode is EditSelectionMode)
 			{
 				// Not pasting anything?
 				EditSelectionMode editmode = (General.Editing.NewMode as EditSelectionMode);
-				if(!editmode.Pasting)
+				if (!editmode.Pasting)
 				{
 					// No selection made? But we have a highlight!
-					if((General.Map.Map.GetSelectedSectors(true).Count == 0) && (highlighted != null))
+					if ((General.Map.Map.GetSelectedSectors(true).Count == 0) && (highlighted != null))
 					{
 						// Make the highlight the selection
 						//SelectSector(highlighted, true, false);
@@ -509,26 +504,30 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 		public override void OnRedrawDisplay()
 		{
 			// Render lines and vertices
-			if(renderer.StartPlotter(true))
+			if (renderer.StartPlotter(true))
 			{
 				renderer.PlotLinedefSet(General.Map.Map.Linedefs);
 				renderer.PlotVerticesSet(General.Map.Map.Vertices);
 
-				foreach (Linedef ld in General.Map.Map.Linedefs)
+				foreach (Linedef ld in blockinglinedefs)
 				{
-					if (LinedefBlocksSounds(ld))
-						renderer.PlotLine(ld.Start.Position, ld.End.Position, BuilderPlug.Me.BlockSoundColor);
+					renderer.PlotLine(ld.Start.Position, ld.End.Position, BuilderPlug.Me.BlockSoundColor);
 				}
 
 				renderer.Finish();
 			}
 
 			// Render things
-			if(renderer.StartThings(true))
+			if (renderer.StartThings(true))
 			{
 				renderer.RenderThingSet(General.Map.ThingsFilter.HiddenThings, Presentation.THINGS_BACK_ALPHA);
 				renderer.RenderThingSet(General.Map.ThingsFilter.VisibleThings, Presentation.THINGS_HIDDEN_ALPHA);
-				renderer.RenderThingSet(huntingThings, 1.0f);
+
+				foreach (SoundEnvironment se in soundenvironments)
+				{
+					if (se.things.Count > 0)
+						renderer.RenderThingSet(se.things, 1.0f);
+				}
 
 				renderer.Finish();
 			}
@@ -544,25 +543,35 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 			}
 			*/
 
-			if (renderer.StartOverlay(true))
+			// Render overlay geometry (sectors)
+			if (overlayGeometry != null && overlayGeometry.Length > 0 && renderer.StartOverlay(true))
 			{
-				foreach (Sector s in General.Map.Map.Sectors)
-				{
-					RenderColoredSector(s, BuilderPlug.Me.NoSoundColor.WithAlpha(128));
-				}
-
-				RenderColoredSector(overlayGeometryLevel1, BuilderPlug.Me.Level1Color.WithAlpha(128));
-				RenderColoredSector(overlayGeometryLevel2, BuilderPlug.Me.Level2Color.WithAlpha(128));
-
-				if (highlighted != null && !highlighted.IsDisposed)
-				{
-					RenderColoredSector(highlighted, BuilderPlug.Me.HighlightColor.WithAlpha(128));
-				}
+				renderer.RenderGeometry(overlayGeometry, General.Map.Data.WhiteTexture, true);
 
 				renderer.Finish();
 			}
-			
+
 			renderer.Present();
+		}
+
+		private List<Thing> GetSoundEnvironmentThings(List<Sector> sectors)
+		{
+			List<Thing> things = new List<Thing>();
+
+			foreach (Thing thing in General.Map.Map.Things)
+			{
+				// SoundEnvironment thing, see http://zdoom.org/wiki/Classes:SoundEnvironment
+				if (thing.Type != 9048)
+					continue;
+
+				if(thing.Sector == null)
+					thing.DetermineSector();
+
+				if (thing.Sector != null && sectors.Contains(thing.Sector))
+					things.Add(thing);
+			}
+
+			return things;
 		}
 
 		private void RenderColoredSector(Sector sector, PixelColor color)
@@ -716,17 +725,8 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 			//mxd. Clear selection info
 			General.Interface.DisplayStatus(StatusType.Selection, string.Empty);
 
-			updateOverlaySurfaces();
-
 			// Redraw
 			General.Interface.RedrawDisplay();
-		}
-
-		[BeginAction("soundpropagationcolorconfiguration")]
-		public void ConfigureColors()
-		{
-			ColorConfiguration cc = new ColorConfiguration();
-			cc.ShowDialog((Form)General.Interface);
 		}
 
 		#endregion
