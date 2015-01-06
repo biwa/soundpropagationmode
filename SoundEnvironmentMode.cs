@@ -63,29 +63,18 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 
 		#region ================== Structs
 
-		struct SoundEnvironment
-		{
-			public List<Sector> sectors;
-			public List<Thing> things;
-			public PixelColor color;
-
-			public SoundEnvironment(int unused)
-			{
-				sectors = new List<Sector>();
-				things = new List<Thing>();
-				color = General.Colors.Background;
-			}
-		}
-
 		#endregion
 
 		#region ================== Variables
 
 		// Highlighted item
 		protected Sector highlighted;
+		private SoundEnvironment highlightedsoundenvironment;
 
 		// Interface
 		protected bool editpressed;
+		private SoundEnvironmentPanel panel;
+		private Docker docker;
 
 		private List<PixelColor> distinctcolors;
 		private List<SoundEnvironment> soundenvironments;
@@ -254,14 +243,36 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 
 			// Set new highlight
 			highlighted = s;
+			highlightedsoundenvironment = null;
 
-			// UpdateSoundEnvironments();
+			if (highlighted != null)
+			{
+				foreach (SoundEnvironment se in soundenvironments)
+				{
+					if (se.Sectors.Contains(highlighted))
+					{
+						highlightedsoundenvironment = se;
+						break;
+					}
+				}
+			}
+			
+			if (highlightedsoundenvironment != null)
+			{
+				panel.HighlightSoundEnvironment(highlightedsoundenvironment);
+			}
+			else
+			{
+				panel.HighlightSoundEnvironment(null);
+			}
 
 			// Show highlight info
+			/*
 			if ((highlighted != null) && !highlighted.IsDisposed)
 				General.Interface.ShowSectorInfo(highlighted);
 			else
 				General.Interface.HideInfo();
+			*/
 
 			// General.Interface.RedrawDisplay();
 		}
@@ -340,7 +351,7 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 					continue;
 				}
 
-				SoundEnvironment environment = new SoundEnvironment(0);
+				SoundEnvironment environment = new SoundEnvironment(colorcounter + 1);
 
 				sectorstocheck.Add(thing.Sector);
 
@@ -349,8 +360,8 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 					Sector sector = sectorstocheck[0];
 					Sector oppositesector = null;
 
-					if (!environment.sectors.Contains(sector))
-						environment.sectors.Add(sector);
+					if (!environment.Sectors.Contains(sector))
+						environment.Sectors.Add(sector);
 
 					if (!checkedsectors.Contains(sector))
 						checkedsectors.Add(sector);
@@ -360,7 +371,13 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 
 					foreach (Sidedef sd in sector.Sidedefs)
 					{
-						if (sd.Line.Back == null || LinedefBlocksSoundEnvironment(sd.Line))
+						if (LinedefBlocksSoundEnvironment(sd.Line))
+						{
+							environment.Linedefs.Add(sd.Line);
+							continue;
+						}
+
+						if (sd.Line.Back == null)
 							continue;
 
 						if (sd.Line.Front.Sector == sector)
@@ -373,19 +390,23 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 					}
 				}
 
-				environment.things = GetSoundEnvironmentThings(environment.sectors);
+				environment.Things = GetSoundEnvironmentThings(environment.Sectors);
 
-				foreach (Thing t in environment.things)
+				foreach (Thing t in environment.Things)
 				{
 					if (soundenvironmenthings.Contains(t))
 						soundenvironmenthings.Remove(t);
 				}
 
-				environment.color = distinctcolors[(int)(colorcounter % distinctcolors.Count)];
+				environment.Color = distinctcolors[(int)(colorcounter % distinctcolors.Count)];
 
 				colorcounter++;
 
+				environment.Things = environment.Things.OrderBy(o => o.Index).ToList();
+				environment.Linedefs = environment.Linedefs.OrderBy(o => o.Index).ToList();
+
 				soundenvironments.Add(environment);
+				panel.AddSoundEnvironment(environment);
 			}
 
 			// Create the overlay geometry from the sound environments
@@ -396,17 +417,17 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 			{
 				PixelColor color = BuilderPlug.Me.NoSoundColor;
 
-				if (se.things.Count > 0)
+				if (se.Things.Count > 0)
 				{
 					color = distinctcolors[i % distinctcolors.Count];
 					i++;
 				}
 
-				foreach(Sector s in se.sectors)
+				foreach(Sector s in se.Sectors)
 				{
 					FlatVertex[] fv = new FlatVertex[s.FlatVertices.Length];
 					s.FlatVertices.CopyTo(fv, 0);
-					for (int j = 0; j < fv.Length; j++) fv[j].c = se.color.WithAlpha(128).ToInt();
+					for (int j = 0; j < fv.Length; j++) fv[j].c = se.Color.WithAlpha(128).ToInt();
 					vertsList.AddRange(fv);
 				}
 			}
@@ -469,9 +490,12 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 		{
 			base.OnEngage();
 
-			UpdateSoundEnvironments();
-
 			General.Interface.AddButton(BuilderPlug.Me.MenusForm.ColorConfiguration);
+
+			panel = new SoundEnvironmentPanel();
+			docker = new Docker("soundenvironments", "Sound environments", panel);
+			General.Interface.AddDocker(docker);
+			General.Interface.SelectDocker(docker);
 
 			CustomPresentation presentation = new CustomPresentation();
 			// presentation.AddLayer(new PresentLayer(RendererLayer.Background, BlendingMode.Mask, General.Settings.BackgroundAlpha));
@@ -498,6 +522,8 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 
 			// Convert geometry selection to sectors only
 			General.Map.Map.ConvertSelection(SelectionType.Sectors);
+
+			UpdateSoundEnvironments();
 		}
 
 		// Mode disengages
@@ -506,6 +532,7 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 			base.OnDisengage();
 
 			General.Interface.RemoveButton(BuilderPlug.Me.MenusForm.ColorConfiguration);
+			General.Interface.RemoveDocker(docker);
 
 			// Keep only sectors selected
 			General.Map.Map.ClearSelectedLinedefs();
@@ -555,8 +582,8 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 
 				foreach (SoundEnvironment se in soundenvironments)
 				{
-					if (se.things.Count > 0)
-						renderer.RenderThingSet(se.things, 1.0f);
+					if (se.Things.Count > 0)
+						renderer.RenderThingSet(se.Things, 1.0f);
 				}
 
 				renderer.Finish();

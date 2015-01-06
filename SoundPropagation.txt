@@ -52,5 +52,5 @@ License Info
 The code is based on the DB2 sectors mode, so the same license applies (an
 unspecified version of the GPL)
 
-The icons used were made by FatCow (http://www.fatcow.com/). The license for
+The icon used was made by FatCow (http://www.fatcow.com/). The license for
 the icon is CC BY 3.0 US (http://creativecommons.org/licenses/by/3.0/us/)

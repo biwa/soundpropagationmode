@@ -64,11 +64,18 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BuilderPlug.cs" />
+    <Compile Include="Interface\SoundEnvironmentPanel.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Interface\SoundEnvironmentPanel.Designer.cs">
+      <DependentUpon>SoundEnvironmentPanel.cs</DependentUpon>
+    </Compile>
     <Compile Include="Properties\Resources.Designer.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
+    <Compile Include="SoundEnvironment.cs" />
     <Compile Include="SoundEnvironmentMode.cs" />
     <Compile Include="Windows\ColorConfiguration.cs">
       <SubType>Form</SubType>
@@ -118,7 +125,16 @@
     <EmbeddedResource Include="Resources\SoundPropagationIcon.png" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="Interface\SoundEnvironmentPanel.resx">
+      <DependentUpon>SoundEnvironmentPanel.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Resources\ZDoomSoundEnvironment.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\Warning.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\Status0.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
