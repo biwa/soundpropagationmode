@@ -406,8 +406,18 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 				environment.Linedefs = environment.Linedefs.OrderBy(o => o.Index).ToList();
 
 				soundenvironments.Add(environment);
-				panel.AddSoundEnvironment(environment);
 			}
+
+			// Add the sound environment to the tree view of the docker
+			panel.SoundEnvironments.BeginUpdate();
+
+			foreach (SoundEnvironment se in soundenvironments)
+			{				
+				panel.AddSoundEnvironment(se);
+			}
+
+			panel.SoundEnvironments.EndUpdate();
+
 
 			// Create the overlay geometry from the sound environments
 			int i = 0;

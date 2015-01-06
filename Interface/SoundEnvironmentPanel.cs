@@ -15,6 +15,8 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 {
 	public partial class SoundEnvironmentPanel : UserControl
 	{
+		public BufferedTreeView SoundEnvironments { get { return soundenvironments; } set { soundenvironments = value; } }
+
 		public SoundEnvironmentPanel()
 		{
 			InitializeComponent();
@@ -85,18 +87,26 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 
 		public void HighlightSoundEnvironment(SoundEnvironment se)
 		{
+			soundenvironments.BeginUpdate();
+
 			foreach (TreeNode tn in soundenvironments.Nodes)
 			{
 				if (se != null && tn.Text == "Sound environment " + se.ID.ToString())
 				{
-					tn.NodeFont = new Font(soundenvironments.Font.FontFamily, soundenvironments.Font.Size, FontStyle.Bold);
-					tn.Text += string.Empty;
+					if (tn.NodeFont == null || tn.NodeFont.Style != FontStyle.Bold)
+					{
+						tn.NodeFont = new Font(soundenvironments.Font.FontFamily, soundenvironments.Font.Size, FontStyle.Bold);
+						tn.Text += string.Empty;
+					}
 				}
 				else
 				{
-					tn.NodeFont = new Font(soundenvironments.Font.FontFamily, soundenvironments.Font.Size);
+					if(tn.NodeFont == null || tn.NodeFont.Style != FontStyle.Regular)
+						tn.NodeFont = new Font(soundenvironments.Font.FontFamily, soundenvironments.Font.Size);
 				}
 			}
+
+			soundenvironments.EndUpdate();
 		}
 
 		private bool ThingDormant(Thing thing)

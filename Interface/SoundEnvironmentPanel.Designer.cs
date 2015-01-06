@@ -28,7 +28,7 @@
 		/// </summary>
 		private void InitializeComponent()
 		{
-			this.soundenvironments = new System.Windows.Forms.TreeView();
+			this.soundenvironments = new BufferedTreeView();
 			this.SuspendLayout();
 			// 
 			// soundenvironments
@@ -38,7 +38,6 @@
 			this.soundenvironments.Name = "soundenvironments";
 			this.soundenvironments.Size = new System.Drawing.Size(214, 353);
 			this.soundenvironments.TabIndex = 0;
-			this.soundenvironments.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.soundenvironments_AfterSelect);
 			// 
 			// SoundEnvironmentPanel
 			// 
@@ -53,6 +52,7 @@
 
 		#endregion
 
-		private System.Windows.Forms.TreeView soundenvironments;
+		private BufferedTreeView soundenvironments;
+
 	}
 }
