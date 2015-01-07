@@ -21,6 +21,9 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 		{
 			InitializeComponent();
 
+			tooltipscheckbox.Checked = General.Settings.ReadPluginSetting("showwarningtooltips", false);
+			soundenvironments.ShowNodeToolTips = tooltipscheckbox.Checked;
+
 			soundenvironments.ImageList = new ImageList();
 			soundenvironments.ImageList.Images.Add(global::SoundPropagationMode.Properties.Resources.Status0);
 			soundenvironments.ImageList.Images.Add(global::SoundPropagationMode.Properties.Resources.Warning);
@@ -42,7 +45,11 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 				thingsnode.Nodes.Add(thingnode);
 
 				if (!ThingDormant(t))
+				{
 					notdormant++;
+
+					thingnode.ToolTipText = "More than one thing in this\nsound environment is set to be\nactive. Set all but one thing\nto dormant";
+				}
 				else
 					thingnode.Text += " (dormant)";
 			}
@@ -75,10 +82,14 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 				if (ld.Back == null)
 				{
 					showwarning = true;
+
+					linedefnode.ToolTipText = "This line is single-sided, but has\nthe sound boundary flag set";
 				}
 				else if (se.Sectors.Contains(ld.Front.Sector) && se.Sectors.Contains(ld.Back.Sector))
 				{
 					showwarning = true;
+
+					linedefnode.ToolTipText = "More than one thing in this\nThe sectors on both sides of\nthe line belong to the same\nsound environment";
 				}
 
 				if (showwarning)
@@ -88,6 +99,8 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 
 					linedefsnode.ImageIndex = 1;
 					linedefsnode.SelectedImageIndex = 1;
+
+					topindex = 1;
 				}
 
 				linedefsnode.Nodes.Add(linedefnode);
@@ -205,6 +218,13 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 			// Zoom to area
 			ClassicMode editmode = (General.Editing.Mode as ClassicMode);
 			editmode.CenterOnArea(area, 0.0f);
+		}
+
+		private void tooltipscheckbox_CheckedChanged(object sender, EventArgs e)
+		{
+			General.Settings.WritePluginSetting("showwarningtooltips", tooltipscheckbox.Checked);
+
+			soundenvironments.ShowNodeToolTips = tooltipscheckbox.Checked;
 		}
 	}
 }

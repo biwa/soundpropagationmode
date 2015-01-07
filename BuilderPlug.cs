@@ -195,6 +195,13 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 			soundenvironmentisupdated = false;
 		}
 
+		public override void OnMapSaveBegin(SavePurpose purpose)
+		{
+			base.OnMapSaveBegin(purpose);
+
+			soundenvironmentisupdated = false;
+		}
+
 		// This is called when the plugin is terminated
 		public override void Dispose()
 		{
