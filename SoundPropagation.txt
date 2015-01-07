@@ -1,8 +1,13 @@
-Sound Propagation Mode Plugin (version 0.9.2)
--------------------------------------------
+Sound Propagation Mode Plugin (version 0.9.3)
+---------------------------------------------
 
-This plugin adds a new mode to GZDoom Builder. This mode shows how sound
-propagates from the currently highlighted sector through the map.
+This plugin adds a two modes to GZDoom Builder. 
+
+
+Sound Propagation Mode
+----------------------
+This mode shows how sound propagates from the currently highlighted sector
+through the map.
 
 Following colors are used:
 
@@ -13,6 +18,32 @@ Following colors are used:
 * gray: sounds from the highlighted sector will not travel to these sectors
 * red: these lines have the block sound flag set
 
+
+ZDoom Sound Environment Mode
+----------------------------
+This mode shows the sound environments in ZDoom maps (both Hexen format and
+UDMF). The gray areas do not belong to a sound environment.
+
+The mode also supplies a docker that supplies information about the sound
+environments. It will display the sound environments, the SoundEnvironment
+things belonging to them and also the lines that are limit the sound
+environments. Clicking on the sound environments, things or lines in the list
+will center the map view on those objects.
+
+This mode can also help you find problems (i.e. behavior that you probably that
+you probably did not intend). If there are any problems with a sound
+environment a warning sign will displayed in the list at the affected thing or
+line (the icon will bubble up the tree to make it easier to find when the whole
+list is collapsed).
+
+Following problems are detected:
+- One-sided lines that are set to be a sound zone boundary
+- Two-sided lines that are set to be a sound zone boundary, but the sectors on
+  both sides belong to the  same sound environment
+- Multiple non-dormant SoundEnivornment things
+
+Note that the latter two can be caused by sound environments unintentionally
+bleeding into other sectors (i.e. not correctly sealed sound environments).
 
 
 Installation
@@ -30,12 +61,18 @@ https://github.com/biwa/
 
 Version History
 ---------------
+0.9.3 (2014-01-07)
+	- Added ZDoom sound environment mode
+	- Things that are in the affected sectors and don't have the deaf/ambush
+	  flag set (i.e. monsters that will come for the player when they hear
+	  him/her) are now displayed solidly
+	- Thing filters are now taken into account 
+	  
 0.9.2 (2015-01-04)
 	- Fixed dates in SoundPropagation.txt file (to YYYY-MM-DD)
 	- Added color configuration dialog (accessible from the tool bar when
 	  in Sound Propagation Mode
 	- Removed some unused code
-	
 	
 0.9.1 (2015-01-03)
 	- Fixed a typo in SoundPropagation.txt
@@ -52,5 +89,5 @@ License Info
 The code is based on the DB2 sectors mode, so the same license applies (an
 unspecified version of the GPL)
 
-The icon used was made by FatCow (http://www.fatcow.com/). The license for
-the icon is CC BY 3.0 US (http://creativecommons.org/licenses/by/3.0/us/)
+The ear and color management icons used were made by FatCow (http://www.fatcow.com/). The license for
+the icons is CC BY 3.0 US (http://creativecommons.org/licenses/by/3.0/us/)
