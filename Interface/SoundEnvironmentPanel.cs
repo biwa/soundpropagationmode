@@ -47,6 +47,7 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 					thingnode.Text += " (dormant)";
 			}
 
+			// Set the icon to warning sign when there are more than 1 non-dormant things
 			if (notdormant > 1)
 			{
 				thingsnode.ImageIndex = 1;
@@ -61,14 +62,34 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 						tn.SelectedImageIndex = 1;
 					}
 				}
-					
 			}
 
 			// Add linedefs
 			foreach (Linedef ld in se.Linedefs)
 			{
+				bool showwarning = false;
 				TreeNode linedefnode = new TreeNode("Linedef " + ld.Index.ToString());
+
 				linedefnode.Tag = ld;
+
+				if (ld.Back == null)
+				{
+					showwarning = true;
+				}
+				else if (se.Sectors.Contains(ld.Front.Sector) && se.Sectors.Contains(ld.Back.Sector))
+				{
+					showwarning = true;
+				}
+
+				if (showwarning)
+				{
+					linedefnode.ImageIndex = 1;
+					linedefnode.SelectedImageIndex = 1;
+
+					linedefsnode.ImageIndex = 1;
+					linedefsnode.SelectedImageIndex = 1;
+				}
+
 				linedefsnode.Nodes.Add(linedefnode);
 			}
 
