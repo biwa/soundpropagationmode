@@ -511,14 +511,25 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 			// Render lines and vertices
 			if(renderer.StartPlotter(true))
 			{
-				renderer.PlotLinedefSet(General.Map.Map.Linedefs);
-				renderer.PlotVerticesSet(General.Map.Map.Vertices);
 
+				// Plot lines by hand, so that no coloring (line specials, 3D floors etc.) distracts from
+				// the sound propagation. Also don't draw the line's normal. They are not needed here anyway
+				// and can make it harder to see the sound environment propagation
 				foreach (Linedef ld in General.Map.Map.Linedefs)
 				{
+					PixelColor c;
+
 					if (LinedefBlocksSounds(ld))
-						renderer.PlotLine(ld.Start.Position, ld.End.Position, BuilderPlug.Me.BlockSoundColor);
+						c = BuilderPlug.Me.BlockSoundColor;
+					else if(ld.IsFlagSet(General.Map.Config.ImpassableFlag))
+						c = General.Colors.Linedefs;
+					else
+						c = General.Colors.Linedefs.WithAlpha(General.Settings.DoubleSidedAlphaByte);
+
+					renderer.PlotLine(ld.Start.Position, ld.End.Position, c);
 				}
+
+				renderer.PlotVerticesSet(General.Map.Map.Vertices);
 
 				renderer.Finish();
 			}
