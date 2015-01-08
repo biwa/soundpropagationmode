@@ -155,10 +155,15 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 			return false;
 		}
 
-		private void soundenvironments_AfterSelect(object sender, TreeViewEventArgs e)
+		private bool IsClickOnText(TreeView treeView, TreeNode node, Point location)
 		{
-			TreeNode node = soundenvironments.SelectedNode;
+			var hitTest = soundenvironments.HitTest(location);
 
+			return hitTest.Node == node	&& (hitTest.Location == TreeViewHitTestLocations.Label || hitTest.Location == TreeViewHitTestLocations.Image);
+		}
+
+		private void ProcessNodeClick(TreeNode node)
+		{
 			if (node == null)
 				return;
 
@@ -225,6 +230,23 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 			General.Settings.WritePluginSetting("showwarningtooltips", tooltipscheckbox.Checked);
 
 			soundenvironments.ShowNodeToolTips = tooltipscheckbox.Checked;
+		}
+
+		private void soundenvironments_NodeMouseClick(object sender, TreeNodeMouseClickEventArgs e)
+		{
+			if (IsClickOnText(soundenvironments, e.Node, e.Location))
+			{
+				ProcessNodeClick(e.Node);
+			}
+		}
+
+		private void soundenvironments_BeforeSelect(object sender, TreeViewCancelEventArgs e)
+		{
+			if (e.Action == TreeViewAction.ByMouse)
+			{
+				var position = soundenvironments.PointToClient(Cursor.Position);
+				e.Cancel = !IsClickOnText(soundenvironments, e.Node, position);
+			}
 		}
 	}
 }

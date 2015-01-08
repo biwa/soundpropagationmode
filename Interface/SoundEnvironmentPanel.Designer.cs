@@ -65,7 +65,8 @@
 			this.soundenvironments.Name = "soundenvironments";
 			this.soundenvironments.Size = new System.Drawing.Size(214, 456);
 			this.soundenvironments.TabIndex = 0;
-			this.soundenvironments.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.soundenvironments_AfterSelect);
+			this.soundenvironments.NodeMouseClick += new System.Windows.Forms.TreeNodeMouseClickEventHandler(this.soundenvironments_NodeMouseClick);
+			this.soundenvironments.BeforeSelect += new System.Windows.Forms.TreeViewCancelEventHandler(this.soundenvironments_BeforeSelect);
 			// 
 			// SoundEnvironmentPanel
 			// 
