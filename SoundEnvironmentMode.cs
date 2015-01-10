@@ -26,6 +26,7 @@ using System.Windows.Forms;
 using System.IO;
 using System.Reflection;
 using System.Linq;
+using System.ComponentModel;
 using CodeImp.DoomBuilder.Windows;
 using CodeImp.DoomBuilder.IO;
 using CodeImp.DoomBuilder.Data;
@@ -75,6 +76,8 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 		protected bool editpressed;
 		private SoundEnvironmentPanel panel;
 		private Docker docker;
+
+		private BackgroundWorker worker;
 
 		#endregion
 
@@ -327,15 +330,28 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 			General.Interface.AddDocker(docker);
 			General.Interface.SelectDocker(docker);
 
+			worker = new BackgroundWorker();
+			worker.WorkerReportsProgress = true;
+			worker.WorkerSupportsCancellation = true;
+
+			worker.DoWork += new DoWorkEventHandler(BuilderPlug.Me.UpdateSoundEnvironments);
+			worker.ProgressChanged += new ProgressChangedEventHandler(worker_ProgressChanged);
+			worker.RunWorkerCompleted += new RunWorkerCompletedEventHandler(worker_RunWorkerCompleted);
+
+			// Only update if map has changed or the sound environments were never updated at all (i.e. first time engaging this mode)
+			if (General.Map.IsChanged || !BuilderPlug.Me.SoundEnvironmentIsUpdated)
+			{
+				General.Interface.DisplayStatus(StatusType.Busy, "Updating sound environments");
+				worker.RunWorkerAsync();
+			}
+			else
+			{
+				foreach (SoundEnvironment se in BuilderPlug.Me.SoundEnvironments)
+					panel.AddSoundEnvironment(se);
+			}
+
 			CustomPresentation presentation = new CustomPresentation();
 			// presentation.AddLayer(new PresentLayer(RendererLayer.Background, BlendingMode.Mask, General.Settings.BackgroundAlpha));
-
-			/*
-			presentation.AddLayer(new PresentLayer(RendererLayer.Background, BlendingMode.Alpha, 1f, true));
-			presentation.AddLayer(new PresentLayer(RendererLayer.Grid, BlendingMode.Mask));
-			presentation.AddLayer(new PresentLayer(RendererLayer.Overlay, BlendingMode.Alpha, 1f, true));
-			presentation.AddLayer(new PresentLayer(RendererLayer.Geometry, BlendingMode.Alpha, 1f, true));
-			*/
 
 			presentation.AddLayer(new PresentLayer(RendererLayer.Background, BlendingMode.Mask, General.Settings.BackgroundAlpha));
 			// presentation.AddLayer(new PresentLayer(RendererLayer.Surface, BlendingMode.Mask));
@@ -352,27 +368,30 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 
 			// Convert geometry selection to sectors only
 			General.Map.Map.ConvertSelection(SelectionType.Sectors);
+		}
 
-			// Only update if map has changed or the sound environments were never updated at all (i.e. first time engaging this mode)
-			if(General.Map.IsChanged || !BuilderPlug.Me.SoundEnvironmentIsUpdated)
-				BuilderPlug.Me.UpdateSoundEnvironments();
+		void worker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+		{
+			General.Interface.DisplayStatus(StatusType.Ready, "Finished updating sound environments");
+		}
 
-			// Add the sound environment to the tree view of the docker
-			panel.SoundEnvironments.BeginUpdate();
+		void worker_ProgressChanged(object sender, ProgressChangedEventArgs e)
+		{
+			SoundEnvironment se = e.UserState as SoundEnvironment;
 
-			foreach (SoundEnvironment se in BuilderPlug.Me.SoundEnvironments)
-			{
-				panel.AddSoundEnvironment(se);
-			}
+			General.Interface.DisplayStatus(StatusType.Busy, "Updating sound environments (" + e.ProgressPercentage.ToString() + "%)");
 
-			panel.SoundEnvironments.EndUpdate();
+			panel.AddSoundEnvironment(se);
 
+			General.Interface.RedrawDisplay();
 		}
 
 		// Mode disengages
 		public override void OnDisengage()
 		{
 			base.OnDisengage();
+
+			worker.CancelAsync();
 
 			General.Interface.RemoveButton(BuilderPlug.Me.MenusForm.ColorConfiguration);
 			General.Interface.RemoveDocker(docker);
@@ -423,9 +442,12 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 
 				// Since there will usually be way less blocking linedefs than total linedefs, it's presumably
 				// faster to draw them on their own instead of checking if each linedef is in BlockingLinedefs
-				foreach (Linedef ld in BuilderPlug.Me.BlockingLinedefs)
+				lock (BuilderPlug.Me.BlockingLinedefs)
 				{
-					renderer.PlotLine(ld.Start.Position, ld.End.Position, BuilderPlug.Me.BlockSoundColor);
+					foreach (Linedef ld in BuilderPlug.Me.BlockingLinedefs)
+					{
+						renderer.PlotLine(ld.Start.Position, ld.End.Position, BuilderPlug.Me.BlockSoundColor);
+					}
 				}
 
 				renderer.PlotVerticesSet(General.Map.Map.Vertices);
@@ -439,10 +461,13 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 				renderer.RenderThingSet(General.Map.ThingsFilter.HiddenThings, Presentation.THINGS_BACK_ALPHA);
 				renderer.RenderThingSet(General.Map.ThingsFilter.VisibleThings, Presentation.THINGS_HIDDEN_ALPHA);
 
-				foreach (SoundEnvironment se in BuilderPlug.Me.SoundEnvironments)
+				lock (BuilderPlug.Me.SoundEnvironments)
 				{
-					if (se.Things.Count > 0)
-						renderer.RenderThingSet(se.Things, 1.0f);
+					foreach (SoundEnvironment se in BuilderPlug.Me.SoundEnvironments)
+					{
+						if (se.Things.Count > 0)
+							renderer.RenderThingSet(se.Things, 1.0f);
+					}
 				}
 
 				renderer.Finish();
@@ -460,11 +485,17 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 			*/
 
 			// Render overlay geometry (sectors)
-			if (BuilderPlug.Me.OverlayGeometry != null && BuilderPlug.Me.OverlayGeometry.Length > 0 && renderer.StartOverlay(true))
+			if (BuilderPlug.Me.OverlayGeometry != null)
 			{
-				renderer.RenderGeometry(BuilderPlug.Me.OverlayGeometry, General.Map.Data.WhiteTexture, true);
+				lock (BuilderPlug.Me.OverlayGeometry)
+				{
+					if (BuilderPlug.Me.OverlayGeometry.Length > 0 && renderer.StartOverlay(true))
+					{
+						renderer.RenderGeometry(BuilderPlug.Me.OverlayGeometry, General.Map.Data.WhiteTexture, true);
 
-				renderer.Finish();
+						renderer.Finish();
+					}
+				}
 			}
 
 			renderer.Present();

@@ -28,6 +28,7 @@ using System.Windows.Forms;
 using System.IO;
 using System.Reflection;
 using System.Linq;
+using System.ComponentModel;
 using CodeImp.DoomBuilder.Windows;
 using CodeImp.DoomBuilder.IO;
 using CodeImp.DoomBuilder.Map;
@@ -211,39 +212,63 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
             General.Actions.UnbindMethods(this);
         }
 
-		public void UpdateSoundEnvironments()
+		public void UpdateSoundEnvironments(object sender, DoWorkEventArgs e)
 		{
 			List<Sector> sectorstocheck = new List<Sector>();
 			List<Sector> checkedsectors = new List<Sector>();
 			List<Sector> allsectors = new List<Sector>();
 			List<Thing> soundenvironmenthings = new List<Thing>();
-			uint colorcounter = 0;
-
-			General.Interface.DisplayStatus(StatusType.Busy, "Updating sound environments");
+			int colorcounter = 0;
+			int numthings = 0;
+			BackgroundWorker worker = sender as BackgroundWorker;
+			List<FlatVertex> vertsList = new List<FlatVertex>();
+			Dictionary<Thing, PixelColor> secolor = new Dictionary<Thing, PixelColor>();
+			Dictionary<Thing, int> senumber = new Dictionary<Thing, int>();
 
 			soundenvironments.Clear();
 			blockinglinedefs.Clear();
 
+			// Keep track of all the sectors in the map. Sectors that belong to a sound environment
+			// will be removed from the list, so in the end only sectors that don't belong to any
+			// sound environment will be in this list
 			foreach (Sector s in General.Map.Map.Sectors)
 				allsectors.Add(s);
 
 			soundenvironmenthings = GetSoundEnvironmentThings(General.Map.Map.Sectors.ToList());
+			numthings = soundenvironmenthings.Count;
 
-			while (soundenvironmenthings.Count > 0)
+			// Assign each thing a color and a number, so each sound environment will always have the same color
+			// and id, no matter in what order they are discovered
+			for (int i = 0; i < soundenvironmenthings.Count; i++)
 			{
+				secolor[soundenvironmenthings[i]] = distinctcolors[i % distinctcolors.Count];
+
+				senumber.Add(soundenvironmenthings[i], i + 1);
+				// senumber[soundenvironmenthings[i]] = i + 1;
+			}
+
+			while (soundenvironmenthings.Count > 0 && !worker.CancellationPending)
+			{
+				// Sort things by distance to center of the screen, so that sound environments the user want to look at will (hopefully) be discovered first
+				Vector2D center = General.Map.Renderer2D.DisplayToMap(new Vector2D(General.Interface.Display.Width / 2, General.Interface.Display.Height / 2));
+				soundenvironmenthings = soundenvironmenthings.OrderBy(o => Math.Abs(Vector2D.Distance(center, o.Position))).ToList();
+
 				Thing thing = soundenvironmenthings[0];
 
 				if (thing.Sector == null)
 					thing.DetermineSector();
 
+				// Ignore things that are outside the map
 				if (thing.Sector == null)
 				{
 					soundenvironmenthings.Remove(thing);
 					continue;
 				}
 
-				SoundEnvironment environment = new SoundEnvironment(colorcounter + 1);
+				SoundEnvironment environment = new SoundEnvironment();
 
+				// Add initial sector. Additional adjacant sectors will be added later
+				// as they are discovered
 				sectorstocheck.Add(thing.Sector);
 
 				while (sectorstocheck.Count > 0)
@@ -260,6 +285,7 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 					sectorstocheck.Remove(sector);
 					allsectors.Remove(sector);
 
+					// Find adjacant sectors and add them to the list of sectors to check if necessary
 					foreach (Sidedef sd in sector.Sidedefs)
 					{
 						if (LinedefBlocksSoundEnvironment(sd.Line))
@@ -283,45 +309,67 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 					}
 				}
 
+				// Get all things that are in the current sound environment...
 				environment.Things = GetSoundEnvironmentThings(environment.Sectors);
 
+				// ... and remove them from the list of sound environment things to check, because we know that
+				// they already belong to a sound environment
 				foreach (Thing t in environment.Things)
 				{
 					if (soundenvironmenthings.Contains(t))
 						soundenvironmenthings.Remove(t);
 				}
 
-				environment.Color = distinctcolors[(int)(colorcounter % distinctcolors.Count)];
+				// Set color and id of the sound environment
+				environment.Color = secolor[environment.Things[0]];
+				environment.ID = senumber[environment.Things[0]];
+
+				// Create the data for the overlay geometry
+				foreach (Sector s in environment.Sectors)
+				{
+					FlatVertex[] fv = new FlatVertex[s.FlatVertices.Length];
+					s.FlatVertices.CopyTo(fv, 0);
+					for (int j = 0; j < fv.Length; j++) fv[j].c = environment.Color.WithAlpha(128).ToInt();
+
+					vertsList.AddRange(fv);
+
+					// Get all Linedefs that will block sound environments
+					foreach (Sidedef sd in s.Sidedefs)
+					{
+						if (LinedefBlocksSoundEnvironment(sd.Line))
+							lock (blockinglinedefs)
+							{
+								blockinglinedefs.Add(sd.Line);
+							}
+					}
+				}
+
+				// Update the overlay geometry with the newly added sectors
+				if (overlayGeometry == null)
+				{
+					overlayGeometry = vertsList.ToArray();
+				}
+				else
+				{
+					lock (overlayGeometry)
+					{
+						overlayGeometry = vertsList.ToArray();
+					}
+				}
 
 				colorcounter++;
 
 				environment.Things = environment.Things.OrderBy(o => o.Index).ToList();
 				environment.Linedefs = environment.Linedefs.OrderBy(o => o.Index).ToList();
 
-				soundenvironments.Add(environment);
-			}
-
-			// Create the overlay geometry from the sound environments
-			int i = 0;
-			List<FlatVertex> vertsList = new List<FlatVertex>();
-
-			foreach (SoundEnvironment se in soundenvironments)
-			{
-				PixelColor color = BuilderPlug.Me.NoSoundColor;
-
-				if (se.Things.Count > 0)
+				lock (soundenvironments)
 				{
-					color = distinctcolors[i % distinctcolors.Count];
-					i++;
+					soundenvironments.Add(environment);
 				}
 
-				foreach (Sector s in se.Sectors)
-				{
-					FlatVertex[] fv = new FlatVertex[s.FlatVertices.Length];
-					s.FlatVertices.CopyTo(fv, 0);
-					for (int j = 0; j < fv.Length; j++) fv[j].c = se.Color.WithAlpha(128).ToInt();
-					vertsList.AddRange(fv);
-				}
+				// Tell the worker that discovering a sound environment is finished. This will update the tree view, and also
+				// redraw the interface, so the sectors of this sound environment are colored
+				worker.ReportProgress((int)((1.0f - (soundenvironmenthings.Count / (float)numthings)) * 100), environment);
 			}
 
 			// Create overlay geometry for sectors that don't belong to a sound environment
@@ -330,19 +378,21 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 				FlatVertex[] fv = new FlatVertex[s.FlatVertices.Length];
 				s.FlatVertices.CopyTo(fv, 0);
 				for (int j = 0; j < fv.Length; j++) fv[j].c = BuilderPlug.Me.NoSoundColor.WithAlpha(128).ToInt();
+
 				vertsList.AddRange(fv);
 			}
 
-			overlayGeometry = vertsList.ToArray();
-
-			// Get all Linedefs that will block sound environments
-			foreach (Linedef ld in General.Map.Map.Linedefs)
+			if (overlayGeometry == null)
 			{
-				if (LinedefBlocksSoundEnvironment(ld))
-					blockinglinedefs.Add(ld);
+				overlayGeometry = vertsList.ToArray();
 			}
-
-			General.Interface.DisplayStatus(StatusType.Ready, "Done updating sound environments");
+			else
+			{
+				lock (overlayGeometry)
+				{
+					overlayGeometry = vertsList.ToArray();
+				}
+			}
 
 			soundenvironmentisupdated = true;
 		}

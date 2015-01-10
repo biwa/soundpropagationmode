@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 using System.IO;
+using System.Text.RegularExpressions;
 using CodeImp.DoomBuilder.Map;
 using CodeImp.DoomBuilder.Editing;
 using CodeImp.DoomBuilder.Geometry;
@@ -115,8 +116,24 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 			topnode.SelectedImageIndex = topindex;
 
 			topnode.Expand();
-			
-			soundenvironments.Nodes.Add(topnode);
+
+			// Sound environments will no be added in consecutive order, so we'll have to find
+			// out where in the tree to add the node
+			Regex seid = new Regex(@"\d+$");
+			int insertionplace = 0;
+
+			foreach (TreeNode tn in soundenvironments.Nodes)
+			{
+				Match match = seid.Match(tn.Text);
+				int num = int.Parse(match.Value);
+
+				if (se.ID < num)
+					break;
+
+				insertionplace++;
+			}
+
+			soundenvironments.Nodes.Insert(insertionplace, topnode);
 		}
 
 		public void HighlightSoundEnvironment(SoundEnvironment se)

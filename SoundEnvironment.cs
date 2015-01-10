@@ -15,7 +15,7 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 		private List<Thing> things;
 		private List<Linedef> linedefs;
 		private PixelColor color;
-		private uint id;
+		private int id;
 
 		#endregion
 
@@ -25,17 +25,17 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 		public List<Thing> Things { get { return things; } set { things = value; } }
 		public List<Linedef> Linedefs { get { return linedefs; } set { linedefs = value; } }
 		public PixelColor Color { get { return color; } set { color = value; } }
-		public uint ID { get { return id; } set { id = value; } }
+		public int ID { get { return id; } set { id = value; } }
 
 		#endregion
 
-		public SoundEnvironment(uint id)
+		public SoundEnvironment()
 		{
 			sectors = new List<Sector>();
 			things = new List<Thing>();
 			linedefs = new List<Linedef>();
 			color = General.Colors.Background;
-			this.id = id;
+			this.id = -1;
 		}
 	}
 }
