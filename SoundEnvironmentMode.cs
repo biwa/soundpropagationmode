@@ -338,17 +338,7 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 			worker.ProgressChanged += new ProgressChangedEventHandler(worker_ProgressChanged);
 			worker.RunWorkerCompleted += new RunWorkerCompletedEventHandler(worker_RunWorkerCompleted);
 
-			// Only update if map has changed or the sound environments were never updated at all (i.e. first time engaging this mode)
-			if (General.Map.IsChanged || !BuilderPlug.Me.SoundEnvironmentIsUpdated)
-			{
-				General.Interface.DisplayStatus(StatusType.Busy, "Updating sound environments");
-				worker.RunWorkerAsync();
-			}
-			else
-			{
-				foreach (SoundEnvironment se in BuilderPlug.Me.SoundEnvironments)
-					panel.AddSoundEnvironment(se);
-			}
+			UpdateData();
 
 			CustomPresentation presentation = new CustomPresentation();
 			// presentation.AddLayer(new PresentLayer(RendererLayer.Background, BlendingMode.Mask, General.Settings.BackgroundAlpha));
@@ -368,6 +358,25 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 
 			// Convert geometry selection to sectors only
 			General.Map.Map.ConvertSelection(SelectionType.Sectors);
+		}
+
+		private void UpdateData()
+		{
+			BuilderPlug.Me.DataIsDirty = false;
+
+			panel.SoundEnvironments.Nodes.Clear();
+
+			// Only update if map has changed or the sound environments were never updated at all (i.e. first time engaging this mode)
+			if ((General.Map.IsChanged || !BuilderPlug.Me.SoundEnvironmentIsUpdated) && !worker.IsBusy)
+			{
+				General.Interface.DisplayStatus(StatusType.Busy, "Updating sound environments");
+				worker.RunWorkerAsync();
+			}
+			else if(!worker.IsBusy)
+			{
+				foreach (SoundEnvironment se in BuilderPlug.Me.SoundEnvironments)
+					panel.AddSoundEnvironment(se);
+			}
 		}
 
 		void worker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
@@ -422,6 +431,9 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 		// This redraws the display
 		public override void OnRedrawDisplay()
 		{
+			if (BuilderPlug.Me.DataIsDirty)
+				UpdateData();
+
 			// Render lines and vertices
 			if (renderer.StartPlotter(true))
 			{

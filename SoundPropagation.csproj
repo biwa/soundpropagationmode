@@ -80,6 +80,7 @@
     </Compile>
     <Compile Include="SoundEnvironment.cs" />
     <Compile Include="SoundEnvironmentMode.cs" />
+    <Compile Include="SoundPropagationDomain.cs" />
     <Compile Include="Windows\ColorConfiguration.cs">
       <SubType>Form</SubType>
     </Compile>

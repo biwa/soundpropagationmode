@@ -1,4 +1,4 @@
-Sound Propagation Mode Plugin (version 0.9.4)
+Sound Propagation Mode Plugin (version 1.0.0)
 ---------------------------------------------
 
 This plugin adds a two modes to GZDoom Builder. 
@@ -61,17 +61,24 @@ https://github.com/biwa/
 
 Version History
 ---------------
-0.9.4 (2015-xx-xx)
+1.0.0 (2015-xx-xx)
 	- Changed the ways linedefs are drawn in both modes. They now ignore any
 	  special coloring (like line specials, 3D floors etc.), so it's easier
 	  to see the important information
 	- Fixed a bug in Sound Environment Mode, where the map would zoom to the
 	  first sound environment, when the Sound Environment docker is not
 	  pinned and shown for the first time
+	- Fixed problems when opening another map from the same WAD while being in
+	  Sound Propagation Mode or Sound Environment Mode
 	- Discovering sound environments now works asynchronously. This does not
 	  increase performance, but the UI stays responsive while the map is
 	  processed. The mode also tries to process sound environments close to
-	  your current view first
+	  your current view first.
+	  Sound environments may have gaps in numbering. This is nothing to worry
+	  about, it's not missing any sound environments
+	- In Sound Propagation Mode sectors are now combined into sound propagation
+	  domains (where sound will always be propagated freely). This is a big
+	  increase in performance for complex maps. Visually nothing changed
 	  
 0.9.3 (2015-01-07)
 	- Added ZDoom sound environment mode

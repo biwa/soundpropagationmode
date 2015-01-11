@@ -81,6 +81,7 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 		private List<Linedef> blockinglinedefs;
 		private FlatVertex[] overlayGeometry;
 		private bool soundenvironmentisupdated;
+		private bool dataisdirty;
 
 		#endregion
 
@@ -117,6 +118,7 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 		public List<Linedef> BlockingLinedefs { get { return blockinglinedefs; } set { blockinglinedefs = value; } }
 		public FlatVertex[] OverlayGeometry { get { return overlayGeometry; } set { overlayGeometry = value; } }
 		public bool SoundEnvironmentIsUpdated { get { return soundenvironmentisupdated; } }
+		public bool DataIsDirty { get { return dataisdirty; } set { dataisdirty = value; } }
 
 		#endregion
 
@@ -163,6 +165,7 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 			soundenvironments = new List<SoundEnvironment>();
 			blockinglinedefs = new List<Linedef>();
 			soundenvironmentisupdated = false;
+			dataisdirty = true;
 
 			//controlsectorarea = new ControlSectorArea(-512, 0, 512, 0, -128, -64, 128, 64, 64, 56);
 
@@ -186,14 +189,14 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 		{
 			base.OnMapOpenBegin();
 
-			soundenvironmentisupdated = false;
+			ResetData();
 		}
 
 		public override void OnMapNewBegin()
 		{
 			base.OnMapNewBegin();
 
-			soundenvironmentisupdated = false;
+			ResetData();
 		}
 
 		public override void OnMapSaveBegin(SavePurpose purpose)
@@ -201,6 +204,13 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 			base.OnMapSaveBegin(purpose);
 
 			soundenvironmentisupdated = false;
+		}
+
+		public override void OnEditEngage(EditMode oldmode, EditMode newmode)
+		{
+			base.OnEditEngage(oldmode, newmode);
+
+			ResetData();
 		}
 
 		// This is called when the plugin is terminated
@@ -211,6 +221,16 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 			// This must be called to remove bound methods for actions.
             General.Actions.UnbindMethods(this);
         }
+
+		// Resets all data. This will trigger both rediscovering sound environments and recalculating
+		// sound propagation domains
+		private void ResetData()
+		{
+			dataisdirty = true;
+			soundenvironmentisupdated = false;
+			soundenvironments = new List<SoundEnvironment>();
+			blockinglinedefs = new List<Linedef>();
+		}
 
 		public void UpdateSoundEnvironments(object sender, DoWorkEventArgs e)
 		{
@@ -427,6 +447,18 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 			// the second argument set (see http://zdoom.org/wiki/Line_SetIdentification)
 			else if (!General.Map.UDMF && linedef.Action == 121 && (linedef.Args[1] & 1) == 1)
 				return true;
+
+			return false;
+		}
+
+		public bool LinedefBlocksSounds(Linedef linedef)
+		{
+			var flags = linedef.GetFlags();
+
+			if (General.Map.UDMF && flags.ContainsKey("blocksound"))
+				return flags["blocksound"];
+			else if (!General.Map.UDMF && flags.ContainsKey("64"))
+				return flags["64"];
 
 			return false;
 		}
